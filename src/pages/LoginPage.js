@@ -1,5 +1,5 @@
 import React from 'react'
-import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, Button, View, Image, Platform, Alert } from 'react-native'
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, Button, View, Image, Platform, Alert, AsyncStorage } from 'react-native'
 import firebase from 'firebase'
 
 import FormRow from "../components/FormRow"
@@ -10,8 +10,8 @@ export default class LoginPage extends React.Component {
         super(props)
 
         this.state = {
-            email: "",
-            password: "",
+            email: "fernando.posser@hotmail.com",
+            password: "123456",
             isLoading: false,
             errorMessage: ""
         }
@@ -22,23 +22,35 @@ export default class LoginPage extends React.Component {
     }
 
     componentDidMount() {
-        var firebaseConfig = {
-            apiKey: "AIzaSyDGP-OAswM1fmB_FqT9yas2mt6886H7RWc",
-            authDomain: "ppgca-notes-timeline.firebaseapp.com",
-            databaseURL: "https://ppgca-notes-timeline.firebaseio.com",
-            projectId: "ppgca-notes-timeline",
-            storageBucket: "ppgca-notes-timeline.appspot.com",
-            messagingSenderId: "87463867174",
-            appId: "1:87463867174:web:5a599b7962b6a0e2fc07e7",
-            measurementId: "G-E2NT2KFDV1"
-        };
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        // firebase.analytics();
+        
+        AsyncStorage.getItem("NotesTimeline::UserData")
+        .then((userDataJson) => {
+            let userData = JSON.parse(userDataJson)
+            if (userData != null) {
+                this.access(userData)
+            }
+        })
+
+        if (!firebase.apps.length) {
+            var firebaseConfig = {
+                apiKey: "AIzaSyDGP-OAswM1fmB_FqT9yas2mt6886H7RWc",
+                authDomain: "ppgca-notes-timeline.firebaseapp.com",
+                databaseURL: "https://ppgca-notes-timeline.firebaseio.com",
+                projectId: "ppgca-notes-timeline",
+                storageBucket: "ppgca-notes-timeline.appspot.com",
+                messagingSenderId: "87463867174",
+                appId: "1:87463867174:web:5a599b7962b6a0e2fc07e7",
+                measurementId: "G-E2NT2KFDV1"
+            };
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            // firebase.analytics();
+        }
     }
 
-    access() {
+    access(userData) {
         this.setState({ isLoading: false })
+        AsyncStorage.setItem('NotesTimeline::UserData', JSON.stringify(userData))
         this.props.navigation.replace("Pessoas")
     }
 
@@ -66,14 +78,16 @@ export default class LoginPage extends React.Component {
     renderErrorMessage() {
         const { errorMessage } = this.state
 
-        Alert.alert(
-            "Erro",
-            errorMessage.toString(),
-            [{
-                text: "ok",
-                onPress: () => { this.setState({errorMessage: ""})}
-            }]
-        )
+        if (errorMessage) {
+            Alert.alert(
+                "Erro",
+                errorMessage.toString(),
+                [{
+                    text: "ok",
+                    onPress: () => { this.setState({ errorMessage: "" }) }
+                }]
+            )
+        }
     }
 
     login() {
@@ -88,6 +102,7 @@ export default class LoginPage extends React.Component {
             .signInWithEmailAndPassword(email, password)
             .then(user => {
                 console.log("tudo certo")
+                this.access(user)
             })
             .catch(error => {
                 console.log("deu merda")
@@ -99,8 +114,45 @@ export default class LoginPage extends React.Component {
             })
     }
 
-    register() {
-        console.log("registraaaaaaar")
+    getRegister() {
+        const { email, password } = this.state;
+
+        if (!email || !password) {
+            Alert.alert(
+                "Cadstro",
+                "Para cadastro informe email e senha."
+            )
+            return null
+        }
+
+        Alert.alert(
+            "Cadastro",
+            "Deseja cadastrar usuário com os dados informados?",
+            [{
+                text: "Cancelar",
+                style: "cancel"
+            }, {
+                text: "Confirmar",
+                style: "default",
+                onPress: () => { this.register(email, password) }
+            }],
+        )
+    }
+
+    register(email, password) {
+        return firebase.auth()
+        .createUserWithEmailAndPassword(email, password)
+        .then(user => {
+            console.log("a princípio deu")
+            this.access(user);
+        })
+        .catch(error => {
+            console.log("erro:" + error)
+            this.setState({
+                message: this.getMessageByErrorCode(error.code),
+                isLoading: false
+            })
+        })
     }
 
     renderButton() {
@@ -120,7 +172,7 @@ export default class LoginPage extends React.Component {
                     <Button
                         title="Registrar-se"
                         color="#ff914d"
-                        onPress={() => this.register()} />
+                        onPress={() => this.getRegister()} />
                 </View>
             </View>
         )
@@ -155,7 +207,7 @@ export default class LoginPage extends React.Component {
                         onChangeText={value => this.onChangeHandler("password", value)} />
                 </FormRow>
                 {this.renderButton()}
-                {/* {this.renderErrorMessage()} */}
+                {this.renderErrorMessage()}
             </ScrollView>
             // </ KeyboardAvoidingView>
         )
